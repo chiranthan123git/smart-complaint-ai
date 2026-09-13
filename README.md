@@ -1,6 +1,6 @@
 # 📍 Namma Ooru Smart Complaint AI
 
-A production-grade cloud application that helps citizens in Bengaluru automatically generate formal civic complaints using Multimodal AI and interactive mapping tools.
+A deployed AI-powered civic complaint assistant for Bengaluru that analyzes uploaded images, validates civic issues, captures precise locations, and generates formal complaint drafts.
 
 ### 🚀 Live Demo
 Check out the live web app here: [Launch App](https://smart-complaint-ai-c86a4xtfy8nfwh7ddjivwz.streamlit.app/)
