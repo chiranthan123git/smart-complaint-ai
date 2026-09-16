@@ -15,13 +15,16 @@ st.title("📍 Namma Ooru Smart Complaint AI + Auto-Location")
 st.write(
     "Upload a photo of a local civic issue, click the map to instantly auto-detect the address, and dispatch your complaint.")
 
+# Make sure these lines exist near the top of your file!
 import os
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 except Exception:
-    # This reads the key safely from your laptop's system variables instead!
     API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# THIS IS THE MISSING LINE!
+client = genai.Client(api_key=API_KEY)
 
 
 MODELS_TO_TRY = ['gemini-3.8-flash', 'gemini-3.6-flash']
@@ -114,12 +117,12 @@ if uploaded_file is not None:
         st.image(image, caption="Uploaded Issue Preview", use_container_width=True)
 
     if st.button("Generate Formal Complaint ✨"):
-        if API_KEY == "YOUR_GEMINI_API_KEY_HERE":
-            st.error("Please add your Gemini API Key in the code first!")
+        if API_KEY == "YOUR_GEMINI_API_KEY_HERE" or API_KEY == "":
+            st.error("Please ensure your Gemini API Key environment variable is configured!")
         elif not location_text:
             st.warning("Please pin a location on the map or type an area description.")
         else:
-            with st.spinner("AI is analyzing the image and generating complaint template..."):
+            with st.spinner("AI is analyzing the image and determining correct department..."):
                 try:
                     # STEP 1: VALIDATION GUARDRAIL
                     validation_prompt = """
@@ -132,6 +135,36 @@ if uploaded_file is not None:
                         st.error(
                             "❌ Validation Failed: The uploaded image does not appear to show a public civic grievance.")
                     else:
+                        # NEW: STEP 1.5 - SMART AI EMAIL ROUTING ENGINE
+                        routing_prompt = """
+                        Analyze this civic issue image and categorize which Bengaluru municipal department must handle it.
+                        Follow these rules strictly:
+                        - Reply 'BESCOM' if it involves electricity, sparking transformers, hanging power wires, or fallen electric poles.
+                        - Reply 'BWSSB' if it involves leaking water mains, open manholes, or overflowing sewage/drainage.
+                        - Reply 'BBMP' for anything else (potholes, garbage piles, broken footpaths, bad roads).
+                        Reply with exactly one word from these three options: BBMP, BESCOM, or BWSSB.
+                        """
+                        route_response, active_model_route = safe_generate_content(client, [image, routing_prompt])
+                        detected_dept = route_response.text.strip().upper()
+
+                        # Dynamic email map assignment based on AI classification string
+                        email_directory = {
+                            "BBMP": "bbmp.grievance@example.com",
+                            "BESCOM": "bescom.safety@example.com",
+                            "BWSSB": "bwssb.water@example.com"
+                        }
+
+                        # Fallback default if AI output contains extra characters
+                        target_dept = "BBMP"
+                        for dept in email_directory.keys():
+                            if dept in detected_dept:
+                                target_dept = dept
+                                break
+
+                        st.session_state['assigned_dept'] = target_dept
+                        st.session_state['assigned_email'] = email_directory[target_dept]
+                        st.info(f"🤖 AI Smart Routing: Categorized under **{target_dept}**.")
+
                         # STEP 2: DRAFT THE COMPLAINT
                         geo_string = ""
                         if clicked_coords:
@@ -140,7 +173,7 @@ if uploaded_file is not None:
                         complaint_prompt = f"""
                         You are an expert civic grievance officer in Bengaluru. 
                         Identify the specific civic issue in the uploaded image.
-                        Write a formal, stern, yet polite complaint email addressed to the BBMP Commissioner.
+                        Write a formal, stern, yet polite complaint email addressed to the {target_dept} Commissioner.
                         Mention that this issue is located at: {location_text}. {geo_string}
                         Keep the entire email concise and under 200 words. Do not use asterisks or markdown formatting.
                         """
@@ -165,7 +198,9 @@ if 'draft_email' in st.session_state:
     with c2:
         user_app_pass = st.text_input("Your 16-Character App Password:", type="password")
     with c3:
-        target_email = st.text_input("Authority Email (Receiver):", value="bbmp.grievance@example.com")
+        # NEW: The value now dynamically responds to the AI session state mapping!
+        default_email = st.session_state.get('assigned_email', 'bbmp.grievance@example.com')
+        target_email = st.text_input("Authority Email (Receiver):", value=default_email)
 
     if st.button("Directly Mail to Authority ✉️"):
         if not user_email or not user_app_pass:
