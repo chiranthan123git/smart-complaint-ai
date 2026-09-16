@@ -47,8 +47,8 @@ def safe_generate_content(client, contents):
 
 # AUTOMATED EMAIL ENGINE
 def send_automated_email(sender_email, app_password, receiver_email, subject, body):
-    smtp_server = "://gmail.com"
-    smtp_port = 587
+    smtp_server="smtp.gmail.com"
+    smtp_port=587
     msg = MIMEMultipart()
     msg['From'] = sender_email
     msg['To'] = receiver_email
